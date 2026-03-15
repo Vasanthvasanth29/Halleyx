@@ -26,8 +26,7 @@ public class AuthController {
         authService.registerUser(
                 signUpRequest.getUsername(), 
                 signUpRequest.getEmail(), 
-                signUpRequest.getPassword(), 
-                signUpRequest.getRole() != null ? signUpRequest.getRole() : User.Role.EMPLOYEE
+                signUpRequest.getPassword()
         );
         return ResponseEntity.ok("User registered successfully!");
     }
@@ -43,7 +42,6 @@ public class AuthController {
         private String username;
         private String email;
         private String password;
-        private User.Role role;
     }
 
     @Data

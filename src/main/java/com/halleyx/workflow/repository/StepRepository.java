@@ -7,4 +7,5 @@ import java.util.UUID;
 
 public interface StepRepository extends JpaRepository<WorkflowStep, UUID> {
     List<WorkflowStep> findByWorkflowIdOrderByOrderAsc(UUID workflowId);
+    long countByWorkflowId(UUID workflowId);
 }

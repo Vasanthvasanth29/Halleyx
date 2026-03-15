@@ -2,6 +2,7 @@ package com.halleyx.workflow.controller;
 
 import com.halleyx.workflow.model.WorkflowStep;
 import com.halleyx.workflow.repository.StepRepository;
+import com.halleyx.workflow.repository.WorkflowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -14,14 +15,25 @@ import java.util.UUID;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 public class StepController {
     private final StepRepository stepRepository;
+    private final WorkflowRepository workflowRepository;
 
     @PostMapping("/workflows/{workflowId}/steps")
     public ResponseEntity<WorkflowStep> addStep(@PathVariable UUID workflowId, @RequestBody WorkflowStep step) {
         step.setWorkflowId(workflowId);
-        return ResponseEntity.ok(stepRepository.save(step));
+        WorkflowStep savedStep = stepRepository.save(step);
+        
+        // Auto-set start step if not already set
+        workflowRepository.findById(workflowId).ifPresent(workflow -> {
+            if (workflow.getStartStepId() == null) {
+                workflow.setStartStepId(savedStep.getId());
+                workflow.setVersion(workflow.getVersion() + 1);
+                workflowRepository.save(workflow);
+            }
+        });
+        
+        return ResponseEntity.ok(savedStep);
     }
 
     @GetMapping("/workflows/{workflowId}/steps")

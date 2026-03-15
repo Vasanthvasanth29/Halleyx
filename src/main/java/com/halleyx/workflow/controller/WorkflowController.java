@@ -1,6 +1,8 @@
 package com.halleyx.workflow.controller;
 
+import com.halleyx.workflow.dto.WorkflowResponseDTO;
 import com.halleyx.workflow.model.Workflow;
+import com.halleyx.workflow.repository.StepRepository;
 import com.halleyx.workflow.repository.WorkflowRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -17,9 +19,9 @@ import java.util.UUID;
 @RequestMapping("/api/workflows")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 public class WorkflowController {
     private final WorkflowRepository workflowRepository;
+    private final StepRepository stepRepository;
 
     @PostMapping
     public ResponseEntity<Workflow> createWorkflow(@RequestBody Workflow workflow) {
@@ -27,20 +29,26 @@ public class WorkflowController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
-    public ResponseEntity<Page<Workflow>> getAllWorkflows(
+    public ResponseEntity<Page<WorkflowResponseDTO>> getAllWorkflows(
             @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size);
+        Page<Workflow> workflowPage;
         if (search != null && !search.isEmpty()) {
-            return ResponseEntity.ok(workflowRepository.findByNameContainingIgnoreCase(search, pageable));
+            workflowPage = workflowRepository.findByNameContainingIgnoreCase(search, pageable);
+        } else {
+            workflowPage = workflowRepository.findAll(pageable);
         }
-        return ResponseEntity.ok(workflowRepository.findAll(pageable));
+        
+        Page<WorkflowResponseDTO> dtoPage = workflowPage.map(wf -> 
+            WorkflowResponseDTO.from(wf, stepRepository.countByWorkflowId(wf.getId()))
+        );
+        
+        return ResponseEntity.ok(dtoPage);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<Workflow> getWorkflow(@PathVariable UUID id) {
         return workflowRepository.findById(id)
                 .map(ResponseEntity::ok)

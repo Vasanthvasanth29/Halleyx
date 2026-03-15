@@ -31,15 +31,13 @@ public class ExecutionController {
     private final ExecutionLogRepository logRepository;
 
     @PostMapping("/workflows/{workflowId}/execute")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<Execution> startExecution(@PathVariable UUID workflowId, @RequestBody ExecutionRequest request) {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        Execution execution = workflowEngine.startExecution(workflowId, request.getData(), userDetails.getId());
+        Execution execution = workflowEngine.startExecution(workflowId, request.getData(), userDetails.getId(), userDetails.getUsername());
         return ResponseEntity.ok(execution);
     }
 
     @GetMapping("/executions")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<Page<Execution>> listExecutions(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
@@ -47,7 +45,6 @@ public class ExecutionController {
     }
 
     @GetMapping("/executions/{id}")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<ExecutionResponse> getExecution(@PathVariable UUID id) {
         return executionRepository.findById(id).map(execution -> {
             List<ExecutionLog> logs = logRepository.findByExecutionIdOrderByStartedAtAsc(id);
@@ -59,7 +56,6 @@ public class ExecutionController {
     }
 
     @PostMapping("/executions/{id}/approve")
-    @PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
     public ResponseEntity<Void> approveExecution(@PathVariable UUID id) {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         workflowEngine.approveStep(id, userDetails.getId());
@@ -67,14 +63,12 @@ public class ExecutionController {
     }
 
     @PostMapping("/executions/{id}/cancel")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<Void> cancelExecution(@PathVariable UUID id) {
         workflowEngine.cancelExecution(id);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/executions/{id}/retry")
-    @PreAuthorize("hasAnyRole('EMPLOYEE', 'MANAGER', 'ADMIN')")
     public ResponseEntity<Void> retryExecution(@PathVariable UUID id) {
         workflowEngine.retryExecution(id);
         return ResponseEntity.ok().build();

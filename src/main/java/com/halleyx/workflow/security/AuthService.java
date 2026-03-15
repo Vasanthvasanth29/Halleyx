@@ -26,7 +26,7 @@ public class AuthService {
         return jwtUtils.generateToken(username);
     }
 
-    public void registerUser(String username, String email, String password, User.Role role) {
+    public void registerUser(String username, String email, String password) {
         if (userRepository.existsByUsername(username)) {
             throw new RuntimeException("Error: Username is already taken!");
         }
@@ -39,7 +39,6 @@ public class AuthService {
                 .username(username)
                 .email(email)
                 .password(passwordEncoder.encode(password))
-                .role(role)
                 .build();
 
         userRepository.save(user);

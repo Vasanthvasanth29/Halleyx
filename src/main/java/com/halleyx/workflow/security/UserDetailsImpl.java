@@ -29,7 +29,7 @@ public class UserDetailsImpl implements UserDetails {
 
     public static UserDetailsImpl build(User user) {
         Collection<? extends GrantedAuthority> authorities = Collections.singletonList(
-                new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+                new SimpleGrantedAuthority("ROLE_USER"));
 
         return new UserDetailsImpl(
                 user.getId(),

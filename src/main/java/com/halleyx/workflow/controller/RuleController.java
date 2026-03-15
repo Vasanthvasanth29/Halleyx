@@ -14,7 +14,6 @@ import java.util.UUID;
 @RequestMapping("/api")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
-@PreAuthorize("hasRole('MANAGER') or hasRole('ADMIN')")
 public class RuleController {
     private final RuleRepository ruleRepository;
 

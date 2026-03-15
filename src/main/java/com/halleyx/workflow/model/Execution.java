@@ -46,6 +46,9 @@ public class Execution {
     @Column(name = "triggered_by")
     private UUID triggeredBy;
 
+    @Column(name = "triggered_by_username")
+    private String triggeredByUsername;
+
     @CreationTimestamp
     @Column(name = "started_at", updatable = false)
     private LocalDateTime startedAt;

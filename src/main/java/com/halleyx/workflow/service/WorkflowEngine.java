@@ -23,8 +23,9 @@ public class WorkflowEngine {
     private final ExecutionRepository executionRepository;
     private final ExecutionLogRepository logRepository;
     private final RuleParser ruleParser;
+    private final WorkflowEventPublisher eventPublisher;
 
-    public Execution startExecution(UUID workflowId, String data, UUID userId) {
+    public Execution startExecution(UUID workflowId, String data, UUID userId, String username) {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
@@ -35,56 +36,24 @@ public class WorkflowEngine {
                 .data(data)
                 .currentStepId(workflow.getStartStepId())
                 .triggeredBy(userId)
+                .triggeredByUsername(username)
                 .build();
 
         execution = executionRepository.save(execution);
-        executeCurrentStep(execution);
+        triggerStepExecution(execution.getId(), execution.getCurrentStepId(), "START");
         return execution;
     }
 
-    public void cancelExecution(UUID executionId) {
-        Execution execution = executionRepository.findById(executionId)
-                .orElseThrow(() -> new RuntimeException("Execution not found"));
-        
-        if (execution.getStatus() == Execution.Status.COMPLETED || execution.getStatus() == Execution.Status.FAILED) {
-            throw new RuntimeException("Cannot cancel a finished execution");
-        }
-
-        execution.setStatus(Execution.Status.CANCELED);
-        execution.setEndedAt(LocalDateTime.now());
-        executionRepository.save(execution);
-
-        // Mark the current log as canceled if it's in progress
-        logRepository.findByExecutionIdOrderByStartedAtAsc(executionId).stream()
-                .filter(l -> "IN_PROGRESS".equals(l.getStatus()))
-                .forEach(l -> {
-                    l.setStatus("CANCELED");
-                    l.setEndedAt(LocalDateTime.now());
-                    logRepository.save(l);
-                });
+    public void triggerStepExecution(UUID executionId, UUID stepId, String triggerType) {
+        eventPublisher.publishStepEvent(executionId, stepId, "STEP_TRIGGER", "PENDING");
     }
 
-    public void retryExecution(UUID executionId) {
-        Execution execution = executionRepository.findById(executionId)
-                .orElseThrow(() -> new RuntimeException("Execution not found"));
-
-        if (execution.getStatus() != Execution.Status.FAILED && execution.getStatus() != Execution.Status.CANCELED) {
-            throw new RuntimeException("Can only retry failed or canceled executions");
-        }
-
-        execution.setStatus(Execution.Status.IN_PROGRESS);
-        execution.setRetries(execution.getRetries() + 1);
-        execution.setEndedAt(null);
-        executionRepository.save(execution);
-
-        executeCurrentStep(execution);
-    }
-
-    public void executeCurrentStep(Execution execution) {
+    public void processStep(Execution execution) {
         if (execution.getCurrentStepId() == null) {
             execution.setStatus(Execution.Status.COMPLETED);
             execution.setEndedAt(LocalDateTime.now());
             executionRepository.save(execution);
+            eventPublisher.publishStatusEvent(execution.getId(), "COMPLETED", execution.getData());
             return;
         }
 
@@ -105,6 +74,7 @@ public class WorkflowEngine {
         if (step.getStepType() == WorkflowStep.StepType.APPROVAL) {
             execution.setStatus(Execution.Status.PENDING);
             executionRepository.save(execution);
+            eventPublisher.publishStepEvent(execution.getId(), step.getId(), "APPROVAL_REQUIRED", "PENDING");
             return;
         }
 
@@ -140,7 +110,8 @@ public class WorkflowEngine {
 
         for (Rule rule : rules) {
             boolean result = ruleParser.evaluate(rule.getCondition(), execution.getData());
-            evaluationLogs.append(String.format("{\"rule\":\"%s\", \"result\":%b},", rule.getCondition(), result));
+            evaluationLogs.append(String.format("{\"rule\":\"%s\", \"result\":%b},", 
+                rule.getCondition().replace("\"", "\\\""), result));
             if (result && matchedRule == null) {
                 matchedRule = rule;
             }
@@ -157,7 +128,7 @@ public class WorkflowEngine {
             execution.setCurrentStepId(matchedRule.getNextStepId());
             logRepository.save(log);
             executionRepository.save(execution);
-            executeCurrentStep(execution);
+            triggerStepExecution(execution.getId(), execution.getCurrentStepId(), "NEXT");
         } else {
             log.setStatus("FAILED");
             log.setErrorMessage("No matching rule found and no DEFAULT rule.");
@@ -165,6 +136,28 @@ public class WorkflowEngine {
             execution.setStatus(Execution.Status.FAILED);
             execution.setEndedAt(LocalDateTime.now());
             executionRepository.save(execution);
+            eventPublisher.publishStatusEvent(execution.getId(), "FAILED", "No matching rule");
         }
+    }
+
+    public void cancelExecution(UUID executionId) {
+        Execution execution = executionRepository.findById(executionId)
+                .orElseThrow(() -> new RuntimeException("Execution not found"));
+        
+        execution.setStatus(Execution.Status.CANCELED);
+        execution.setEndedAt(LocalDateTime.now());
+        executionRepository.save(execution);
+        eventPublisher.publishStatusEvent(executionId, "CANCELED", "Execution cancelled by user");
+    }
+
+    public void retryExecution(UUID executionId) {
+        Execution execution = executionRepository.findById(executionId)
+                .orElseThrow(() -> new RuntimeException("Execution not found"));
+        
+        execution.setStatus(Execution.Status.IN_PROGRESS);
+        execution.setRetries(execution.getRetries() + 1);
+        executionRepository.save(execution);
+        
+        triggerStepExecution(executionId, execution.getCurrentStepId(), "RETRY");
     }
 }
