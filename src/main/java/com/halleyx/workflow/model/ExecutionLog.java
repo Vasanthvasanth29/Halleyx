@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "execution_logs")
+@Table(name = "execution_logs", indexes = {
+    @Index(name = "idx_log_execution_id", columnList = "execution_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -41,6 +43,12 @@ public class ExecutionLog {
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
+
+    @Column(name = "execution_duration")
+    private String executionDuration;
+
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
 
     @CreationTimestamp
     @Column(name = "started_at")

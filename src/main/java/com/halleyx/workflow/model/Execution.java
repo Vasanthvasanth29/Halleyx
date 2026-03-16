@@ -13,7 +13,10 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "executions")
+@Table(name = "executions", indexes = {
+    @Index(name = "idx_execution_workflow_id", columnList = "workflow_id"),
+    @Index(name = "idx_execution_status", columnList = "status")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -42,6 +45,10 @@ public class Execution {
 
     @Builder.Default
     private Integer retries = 0;
+
+    @Column(name = "iteration_count")
+    @Builder.Default
+    private Integer iterationCount = 0;
 
     @Column(name = "triggered_by")
     private UUID triggeredBy;

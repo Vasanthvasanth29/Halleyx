@@ -1,6 +1,7 @@
 package com.halleyx.workflow.dto;
 
 import com.halleyx.workflow.model.Workflow;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -10,7 +11,8 @@ public class WorkflowResponseDTO {
     private UUID id;
     private String name;
     private Integer version;
-    private Boolean isActive;
+    @JsonProperty("active")
+    private Boolean active;
     private Long stepCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -20,7 +22,7 @@ public class WorkflowResponseDTO {
         dto.setId(workflow.getId());
         dto.setName(workflow.getName());
         dto.setVersion(workflow.getVersion());
-        dto.setIsActive(workflow.getIsActive());
+        dto.setActive(workflow.getActive());
         dto.setStepCount(stepCount);
         dto.setCreatedAt(workflow.getCreatedAt());
         dto.setUpdatedAt(workflow.getUpdatedAt());

@@ -51,4 +51,16 @@ public class WorkflowEventPublisher {
         log.info("Publishing status event: {}", event);
         rabbitTemplate.convertAndSend("workflow.exchange", "workflow.status.update", event);
     }
+
+    public void publishNotificationEvent(UUID executionId, UUID stepId, String channel, String template) {
+        WorkflowEvent event = WorkflowEvent.builder()
+                .executionId(executionId)
+                .stepId(stepId)
+                .eventType("NOTIFICATION")
+                .data(String.format("{\"channel\":\"%s\", \"template\":\"%s\"}", channel, template))
+                .build();
+        
+        log.info("Publishing notification event: {}", event);
+        rabbitTemplate.convertAndSend("workflow.exchange", "workflow.notification." + channel.toLowerCase(), event);
+    }
 }

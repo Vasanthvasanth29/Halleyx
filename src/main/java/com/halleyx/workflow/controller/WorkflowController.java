@@ -1,5 +1,6 @@
 package com.halleyx.workflow.controller;
 
+import com.halleyx.workflow.service.WorkflowService;
 import com.halleyx.workflow.dto.WorkflowResponseDTO;
 import com.halleyx.workflow.model.Workflow;
 import com.halleyx.workflow.repository.StepRepository;
@@ -10,10 +11,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
+import com.halleyx.workflow.model.WorkflowStep;
+import com.halleyx.workflow.model.Rule;
+import com.halleyx.workflow.repository.RuleRepository;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/workflows")
@@ -22,23 +27,37 @@ import java.util.UUID;
 public class WorkflowController {
     private final WorkflowRepository workflowRepository;
     private final StepRepository stepRepository;
+    private final RuleRepository ruleRepository;
+    private final WorkflowService workflowService;
 
     @PostMapping
     public ResponseEntity<Workflow> createWorkflow(@RequestBody Workflow workflow) {
-        return ResponseEntity.ok(workflowRepository.save(workflow));
+        return ResponseEntity.ok(workflowService.createWorkflow(workflow));
     }
 
     @GetMapping
     public ResponseEntity<Page<WorkflowResponseDTO>> getAllWorkflows(
-            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) Boolean active,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        Pageable pageable = PageRequest.of(page, size, 
+            Sort.by(Sort.Direction.DESC, "active")
+                .and(Sort.by(Sort.Direction.DESC, "version"))
+                .and(Sort.by(Sort.Direction.DESC, "updatedAt")));
         Page<Workflow> workflowPage;
-        if (search != null && !search.isEmpty()) {
-            workflowPage = workflowRepository.findByNameContainingIgnoreCase(search, pageable);
+        if (name != null && !name.isEmpty()) {
+            if (active != null) {
+                workflowPage = workflowRepository.findByActiveAndNameContainingIgnoreCase(active, name, pageable);
+            } else {
+                workflowPage = workflowRepository.findByNameContainingIgnoreCase(name, pageable);
+            }
         } else {
-            workflowPage = workflowRepository.findAll(pageable);
+            if (active != null) {
+                workflowPage = workflowRepository.findByActive(active, pageable);
+            } else {
+                workflowPage = workflowRepository.findAll(pageable);
+            }
         }
         
         Page<WorkflowResponseDTO> dtoPage = workflowPage.map(wf -> 
@@ -57,14 +76,7 @@ public class WorkflowController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Workflow> updateWorkflow(@PathVariable UUID id, @RequestBody Workflow workflowDetails) {
-        return workflowRepository.findById(id).map(workflow -> {
-            workflow.setName(workflowDetails.getName());
-            workflow.setVersion(workflow.getVersion() + 1);
-            workflow.setInputSchema(workflowDetails.getInputSchema());
-            workflow.setStartStepId(workflowDetails.getStartStepId());
-            workflow.setIsActive(workflowDetails.getIsActive());
-            return ResponseEntity.ok(workflowRepository.save(workflow));
-        }).orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.ok(workflowService.updateWithVersioning(id, workflowDetails));
     }
 
     @DeleteMapping("/{id}")

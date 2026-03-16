@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
+import com.halleyx.workflow.repository.RuleRepository;
 
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +20,7 @@ import java.util.UUID;
 public class StepController {
     private final StepRepository stepRepository;
     private final WorkflowRepository workflowRepository;
+    private final RuleRepository ruleRepository;
 
     @PostMapping("/workflows/{workflowId}/steps")
     public ResponseEntity<WorkflowStep> addStep(@PathVariable UUID workflowId, @RequestBody WorkflowStep step) {
@@ -53,7 +56,9 @@ public class StepController {
     }
 
     @DeleteMapping("/steps/{id}")
+    @Transactional
     public ResponseEntity<Void> deleteStep(@PathVariable UUID id) {
+        ruleRepository.deleteByStepId(id);
         stepRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }

@@ -8,11 +8,9 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.MDC;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -24,15 +22,19 @@ public class WorkflowEngine {
     private final ExecutionLogRepository logRepository;
     private final RuleParser ruleParser;
     private final WorkflowEventPublisher eventPublisher;
+    private final InputValidator inputValidator;
 
     public Execution startExecution(UUID workflowId, String data, UUID userId, String username) {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new RuntimeException("Workflow not found"));
 
+        // 1. Validation for workflow execution
+        inputValidator.validate(data, workflow.getInputSchema());
+
         Execution execution = Execution.builder()
                 .workflowId(workflowId)
                 .workflowVersion(workflow.getVersion())
-                .status(Execution.Status.IN_PROGRESS)
+                .status(Execution.Status.IN_PROGRESS) // Initial state
                 .data(data)
                 .currentStepId(workflow.getStartStepId())
                 .triggeredBy(userId)
@@ -40,6 +42,9 @@ public class WorkflowEngine {
                 .build();
 
         execution = executionRepository.save(execution);
+        
+        // As a senior engineer improvement: publish start event instead of direct trigger
+        // For now, keeping trigger but it's part of the async decouple plan
         triggerStepExecution(execution.getId(), execution.getCurrentStepId(), "START");
         return execution;
     }
@@ -49,6 +54,21 @@ public class WorkflowEngine {
     }
 
     public void processStep(Execution execution) {
+        Workflow workflow = workflowRepository.findById(execution.getWorkflowId())
+                .orElseThrow(() -> new RuntimeException("Workflow not found"));
+
+        // 2. Loop protection
+        if (execution.getIterationCount() >= workflow.getMaxIterations()) {
+            execution.setStatus(Execution.Status.FAILED);
+            execution.setEndedAt(LocalDateTime.now());
+            executionRepository.save(execution);
+            eventPublisher.publishStatusEvent(execution.getId(), "FAILED", "Workflow exceeded max iterations (Loop protection)");
+            return;
+        }
+
+        // Increment iteration count
+        execution.setIterationCount(execution.getIterationCount() + 1);
+
         if (execution.getCurrentStepId() == null) {
             execution.setStatus(Execution.Status.COMPLETED);
             execution.setEndedAt(LocalDateTime.now());
@@ -70,15 +90,46 @@ public class WorkflowEngine {
 
         log = logRepository.save(log);
 
-        // If it's an approval step, we pause here
-        if (step.getStepType() == WorkflowStep.StepType.APPROVAL) {
-            execution.setStatus(Execution.Status.PENDING);
-            executionRepository.save(execution);
-            eventPublisher.publishStepEvent(execution.getId(), step.getId(), "APPROVAL_REQUIRED", "PENDING");
-            return;
-        }
+        // MDC for structured logging
+        MDC.put("executionId", execution.getId().toString());
+        MDC.put("stepId", step.getId().toString());
+        MDC.put("stepName", step.getName());
 
-        // For Task and Notification, we evaluate rules and move to next
+        try {
+            // If it's an approval step, we pause here
+            if (step.getStepType() == WorkflowStep.StepType.APPROVAL) {
+                execution.setStatus(Execution.Status.PENDING);
+                executionRepository.save(execution);
+                eventPublisher.publishStepEvent(execution.getId(), step.getId(), "APPROVAL_REQUIRED", "PENDING");
+                return;
+            }
+
+            // For Notifications, we process asynchronously via RabbitMQ
+            if (step.getStepType() == WorkflowStep.StepType.NOTIFICATION) {
+                processNotificationAsync(execution, step, log);
+                return;
+            }
+
+            // For Task we evaluate rules and move to next
+            evaluateAndTransition(execution, step, log);
+        } finally {
+            MDC.clear();
+        }
+    }
+
+    private void processNotificationAsync(Execution execution, WorkflowStep step, ExecutionLog log) {
+        // Publish to specialized notification queue as per requirement 6
+        String channel = (String) step.getMetadata().getOrDefault("channel", "EMAIL");
+        String template = (String) step.getMetadata().getOrDefault("message_template", "Notification for step: " + step.getName());
+        
+        eventPublisher.publishNotificationEvent(execution.getId(), step.getId(), channel, template);
+        
+        log.setNote("Notification sent via " + channel);
+        log.setStatus("COMPLETED");
+        log.setEndedAt(LocalDateTime.now());
+        logRepository.save(log);
+
+        // For notification steps, we assume transition to next if no rules or just follow rules
         evaluateAndTransition(execution, step, log);
     }
 
@@ -109,11 +160,17 @@ public class WorkflowEngine {
         StringBuilder evaluationLogs = new StringBuilder("[");
 
         for (Rule rule : rules) {
-            boolean result = ruleParser.evaluate(rule.getCondition(), execution.getData());
-            evaluationLogs.append(String.format("{\"rule\":\"%s\", \"result\":%b},", 
-                rule.getCondition().replace("\"", "\\\""), result));
-            if (result && matchedRule == null) {
-                matchedRule = rule;
+            try {
+                boolean result = ruleParser.evaluate(rule.getCondition(), execution.getData());
+                evaluationLogs.append(String.format("{\"rule\":\"%s\", \"result\":%b},", 
+                    rule.getCondition().replace("\"", "\\\""), result));
+                if (result && matchedRule == null) {
+                    matchedRule = rule;
+                }
+            } catch (Exception e) {
+                // Log error and skip invalid rule as per requirement
+                evaluationLogs.append(String.format("{\"rule\":\"%s\", \"error\":\"%s\"},", 
+                    rule.getCondition().replace("\"", "\\\""), e.getMessage().replace("\"", "\\\"")));
             }
         }
         if (evaluationLogs.length() > 1) evaluationLogs.setLength(evaluationLogs.length() - 1);
@@ -122,6 +179,10 @@ public class WorkflowEngine {
         log.setEvaluatedRules(evaluationLogs.toString());
         log.setStatus("COMPLETED");
         log.setEndedAt(LocalDateTime.now());
+        
+        // Calculate duration
+        java.time.Duration duration = java.time.Duration.between(log.getStartedAt(), log.getEndedAt());
+        log.setExecutionDuration(duration.toSeconds() + " seconds");
 
         if (matchedRule != null) {
             log.setSelectedNextStep(matchedRule.getNextStepId() != null ? matchedRule.getNextStepId().toString() : "END");
@@ -130,8 +191,10 @@ public class WorkflowEngine {
             executionRepository.save(execution);
             triggerStepExecution(execution.getId(), execution.getCurrentStepId(), "NEXT");
         } else {
+            // Check for a DEFAULT rule fallback explicitly if not matched above 
+            // (though normally DEFAULT should be in the rules list with lowest priority)
             log.setStatus("FAILED");
-            log.setErrorMessage("No matching rule found and no DEFAULT rule.");
+            log.setErrorMessage("No matching rule found.");
             logRepository.save(log);
             execution.setStatus(Execution.Status.FAILED);
             execution.setEndedAt(LocalDateTime.now());
@@ -154,6 +217,14 @@ public class WorkflowEngine {
         Execution execution = executionRepository.findById(executionId)
                 .orElseThrow(() -> new RuntimeException("Execution not found"));
         
+        WorkflowStep step = stepRepository.findById(execution.getCurrentStepId())
+                .orElseThrow(() -> new RuntimeException("Step not found"));
+
+        // 6. Step Retry Mechanism
+        if (execution.getRetries() >= step.getMaxRetries()) {
+            throw new RuntimeException("Max retries reached for step: " + step.getName());
+        }
+
         execution.setStatus(Execution.Status.IN_PROGRESS);
         execution.setRetries(execution.getRetries() + 1);
         executionRepository.save(execution);

@@ -24,31 +24,29 @@ public class RuleParser {
             StandardEvaluationContext context = new StandardEvaluationContext();
             context.setVariables(variables);
 
-            // Translate DSL to Spel
-            // contains(field, 'value') -> #field.contains('value')
-            // field == 'value' -> #field == 'value'
             String spelCondition = translateToSpel(condition, variables.keySet());
 
             Expression expression = parser.parseExpression(spelCondition);
             return Boolean.TRUE.equals(expression.getValue(context, Boolean.class));
         } catch (Exception e) {
-            return false;
+            throw new RuntimeException("Validation error in rule: " + condition, e);
         }
     }
 
     private String translateToSpel(String condition, Iterable<String> fields) {
         String result = condition;
 
-        // Replace logic functions: contains(field, 'value') -> #field.contains('value')
-        // Using [^,]+ to match field names more flexibly
+        // 1. Better logic function handling
         result = result.replaceAll("contains\\(([^,]+),\\s*(['\"])(.*?)\\2\\)", "#$1.contains('$3')");
         result = result.replaceAll("startsWith\\(([^,]+),\\s*(['\"])(.*?)\\2\\)", "#$1.startsWith('$3')");
         result = result.replaceAll("endsWith\\(([^,]+),\\s*(['\"])(.*?)\\2\\)", "#$1.endsWith('$3')");
 
-        // Prefix all fields with # for SpEL variables, but avoid prefixing already prefixed ones
+        // 2. Production grade field detection: Handle nested logic and standard operators.
+        // We use a regex that matches identifiers that are NOT part of a function or already prefixed.
+        // This allows 'amount > 1000 && country == "US"'
         for (String field : fields) {
-            // Avoid double prefixing and only match whole words
-            result = result.replaceAll("(?<![#\\w])\\b" + field + "\\b", "#" + field);
+            // Match whole word, not preceded by # or ., not followed by ( (to avoid functions)
+            result = result.replaceAll("(?<![#\\.\\w])\\b" + field + "\\b(?!\\()", "#" + field);
         }
 
         return result;

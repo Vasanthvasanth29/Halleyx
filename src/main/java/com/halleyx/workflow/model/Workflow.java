@@ -1,5 +1,6 @@
 package com.halleyx.workflow.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -31,13 +32,21 @@ public class Workflow {
 
     @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private Boolean isActive = true;
+    @JsonProperty("active")
+    private Boolean active = true;
+
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
 
     @Column(name = "input_schema", columnDefinition = "TEXT")
     private String inputSchema;
 
     @Column(name = "start_step_id")
     private UUID startStepId;
+
+    @Column(name = "max_iterations")
+    @Builder.Default
+    private Integer maxIterations = 50;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
