@@ -1,0 +1,17 @@
+# IDE
+.vscode/
+
+# Logs
+*.log
+*.txt
+
+# Temp files
+*.json
+
+# Backend
+target/
+
+# Frontend
+node_modules/
+dist/
+.env
