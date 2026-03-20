@@ -231,52 +231,45 @@ public class SecurityConfig {
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthFilter
     ) throws Exception {
+//
+//        http
+//                // ❌ disable csrf
+//                .csrf(AbstractHttpConfigurer::disable)
+//
+//                // ✅ CORS config
+//                .cors(cors -> cors.configurationSource(request -> {
+//                    CorsConfiguration config = new CorsConfiguration();
+//                    config.setAllowedOriginPatterns(List.of("*"));
+//                    config.setAllowedMethods(List.of(
+//                            "GET", "POST", "PUT", "DELETE", "OPTIONS"
+//                    ));
+//                    config.setAllowedHeaders(List.of("*"));
+//                    config.setAllowCredentials(true);
+//                    return config;
+//                }))
+
 
         http
-                // ❌ disable csrf
                 .csrf(AbstractHttpConfigurer::disable)
-
-                // ✅ CORS config
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
                     config.setAllowedOriginPatterns(List.of("*"));
-                    config.setAllowedMethods(List.of(
-                            "GET", "POST", "PUT", "DELETE", "OPTIONS"
-                    ));
+                    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     config.setAllowedHeaders(List.of("*"));
                     config.setAllowCredentials(true);
                     return config;
                 }))
 
-                // ✅ AUTH RULES
                 .authorizeHttpRequests(auth -> auth
-
-                        // preflight requests
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                        // public endpoints
-                        .requestMatchers("/", "/error").permitAll()   // 🔥 FIXED
-                        .requestMatchers("/auth/**").permitAll()
-
-                        // admin (temporary open - later secure panna)
-                        .requestMatchers("/api/admin/**").permitAll()
-
-                        // everything else secured
-                        .anyRequest().permitAll()
+                        .requestMatchers("/", "/test", "/api/auth/**").permitAll()
+                        .anyRequest().authenticated()
                 )
 
-                // ✅ stateless (JWT)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-
-                // ✅ auth provider
                 .authenticationProvider(authenticationProvider())
-
-                // ✅ JWT filter
-                .addFilterBefore(jwtAuthFilter,
-                        UsernamePasswordAuthenticationFilter.class);
-
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
