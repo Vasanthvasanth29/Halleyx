@@ -4,6 +4,13 @@
 
 [Click to watch demo](https://drive.google.com/file/d/1pU-O89w0DT1OPPIguBDvGCDTSeyTPhiD/view?usp=drivesdk)
 
+## 🌐 Live Deployment
+
+- **Frontend (Live UI)**: https://halleyx-ten.vercel.app  
+- **Backend (API Server)**: https://halleyx-jyr7.onrender.com  
+
+---
+
 **HalleyX** is a high-performance, role-based workflow automation engine designed to orchestrate complex organizational processes. It features a stunning glassmorphic interface and a robust Spring Boot backend to handle dynamic task routing, approvals, and real-time notifications.
 
 ## 🚀 Overview
@@ -19,7 +26,7 @@ HalleyX allows administrators to design multi-stage process blueprints (Workflow
 - **Self-Healing Engine**: Backend logic that automatically handles edge cases and role-matching normalization.
 
 ## 🛠️ Tech Stack
-- **Backend**: Java 17, Spring Boot, Spring Data JPA, H2/PostgreSQL, Spring Mail, RabbitMQ.
+- **Backend**: Java 21, Spring Boot, Spring Data JPA, H2/PostgreSQL, Spring Mail, RabbitMQ.
 - **Frontend**: React 18, Vite, Vanilla CSS (Glassmorphism), Lucide React.
 - **Testing**: JUnit 5, Mockito, Selenium WebDriver.
 
