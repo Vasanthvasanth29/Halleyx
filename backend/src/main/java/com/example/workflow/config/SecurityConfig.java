@@ -183,6 +183,49 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+//    @Bean
+//    public SecurityFilterChain securityFilterChain(
+//            HttpSecurity http,
+//            JwtAuthenticationFilter jwtAuthFilter
+//    ) throws Exception {
+//
+//        http
+//                .csrf(AbstractHttpConfigurer::disable)
+//
+//                .cors(cors -> cors.configurationSource(request -> {
+//                    CorsConfiguration config = new CorsConfiguration();
+//                    config.setAllowedOriginPatterns(List.of("*"));
+//                    config.setAllowedMethods(List.of(
+//                            "GET", "POST", "PUT", "DELETE", "OPTIONS"
+//                    ));
+//                    config.setAllowedHeaders(List.of("*"));
+//                    config.setAllowCredentials(true);
+//                    return config;
+//                }))
+//
+//                .authorizeHttpRequests(auth -> auth
+//                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+//                        .requestMatchers("/auth/**").permitAll()
+//                        .requestMatchers("/error").permitAll()
+//
+//                        // 🔥 MAIN FIX
+//                        .requestMatchers("/api/admin/**").permitAll()
+//
+//                        .anyRequest().authenticated()
+//                )
+//
+//                .sessionManagement(session ->
+//                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+//                )
+//
+//                .authenticationProvider(authenticationProvider())
+//
+//                .addFilterBefore(jwtAuthFilter,
+//                        UsernamePasswordAuthenticationFilter.class);
+//
+//        return http.build();
+//    }
+
     @Bean
     public SecurityFilterChain securityFilterChain(
             HttpSecurity http,
@@ -190,8 +233,10 @@ public class SecurityConfig {
     ) throws Exception {
 
         http
+                // ❌ disable csrf
                 .csrf(AbstractHttpConfigurer::disable)
 
+                // ✅ CORS config
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
                     config.setAllowedOriginPatterns(List.of("*"));
@@ -203,23 +248,32 @@ public class SecurityConfig {
                     return config;
                 }))
 
+                // ✅ AUTH RULES
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/error").permitAll()
 
-                        // 🔥 MAIN FIX
+                        // preflight requests
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // public endpoints
+                        .requestMatchers("/", "/error").permitAll()   // 🔥 FIXED
+                        .requestMatchers("/auth/**").permitAll()
+
+                        // admin (temporary open - later secure panna)
                         .requestMatchers("/api/admin/**").permitAll()
 
+                        // everything else secured
                         .anyRequest().authenticated()
                 )
 
+                // ✅ stateless (JWT)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
+                // ✅ auth provider
                 .authenticationProvider(authenticationProvider())
 
+                // ✅ JWT filter
                 .addFilterBefore(jwtAuthFilter,
                         UsernamePasswordAuthenticationFilter.class);
 
