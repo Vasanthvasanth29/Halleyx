@@ -1,0 +1,7 @@
+com\example\workflow\ExpenseWorkflowIntegrationTest.class
+com\example\workflow\selenium\SystemAutomationTest.class
+com\example\workflow\service\UserServiceTest.class
+com\example\workflow\controller\AuthControllerTest.class
+com\example\workflow\service\RabbitMQProducerTest.class
+com\example\workflow\service\WorkflowServiceTest.class
+com\example\workflow\repository\UserRepositoryTest.class
