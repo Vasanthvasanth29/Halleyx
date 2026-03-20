@@ -80,8 +80,8 @@ public class JwtUtil {
                 .getBody();
     }
 
+    // ✅ FIXED METHOD
     private Key getSignInKey() {
-        byte[] keyBytes = io.jsonwebtoken.io.Decoders.BASE64.decode(secret);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return Keys.hmacShaKeyFor(secret.getBytes());
     }
 }

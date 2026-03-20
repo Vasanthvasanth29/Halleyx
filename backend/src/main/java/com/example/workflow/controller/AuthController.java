@@ -20,7 +20,11 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        System.out.println("USERNAME: " + request.getUsername());
+        System.out.println("EMAIL: " + request.getEmail());
+        System.out.println("PASSWORD: " + request.getPassword());
+
         return ResponseEntity.ok(authService.register(request));
     }
 
