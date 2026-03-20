@@ -47,7 +47,7 @@ public class WorkflowManagementService {
     @PersistenceContext
     private EntityManager entityManager;
     private final AuditLogService auditLogService;
-    private final RabbitMQProducer rabbitMQProducer;
+    //private final RabbitMQProducer rabbitMQProducer;
     private final EmailService emailService;
 
     private void notifyStakeholders(WorkflowExecution execution, String stage) {
@@ -572,7 +572,7 @@ public class WorkflowManagementService {
         rmqEvent.put("inputs", request != null ? request.getInputs() : null);
 
         try {
-            rabbitMQProducer.sendWorkflowExecutionEvent(rmqEvent);
+            //rabbitMQProducer.sendWorkflowExecutionEvent(rmqEvent);
         } catch (Exception e) {
             System.err.println("RMQ Failed: " + e.getMessage());
         }
@@ -884,13 +884,13 @@ public class WorkflowManagementService {
             payload.put("status", execution.getStatus());
             if (execution.getCurrentStep() != null) payload.put("stepName", execution.getCurrentStep().getStepName());
             
-            rabbitMQProducer.sendWorkflowExecutionEvent(payload);
-            
+            //rabbitMQProducer.sendWorkflowExecutionEvent(payload);
+
             // Send Generic Workflow Event as requested
             Map<String, Object> genericEvent = new HashMap<>(event);
             genericEvent.put("workflow", execution.getWorkflow().getCategory());
             genericEvent.put("assignedTo", execution.getCurrentHandlerUserId());
-            rabbitMQProducer.sendGenericWorkflowEvent(genericEvent);
+            //rabbitMQProducer.sendGenericWorkflowEvent(genericEvent);
         } catch (Exception e) {
             System.err.println("RabbitMQ Transition Event Failed: " + e.getMessage());
         }

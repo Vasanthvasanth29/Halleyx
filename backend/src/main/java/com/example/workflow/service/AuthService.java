@@ -27,7 +27,7 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
     private final UserDetailsService userDetailsService;
-    private final RabbitMQProducer rabbitMQProducer;
+    //private final RabbitMQProducer rabbitMQProducer;
     private final AuditLogService auditLogService;
 
     public AuthResponse register(RegisterRequest request) {
@@ -69,7 +69,7 @@ public class AuthService {
         }
 
         try {
-            rabbitMQProducer.sendUserRegisteredEvent(eventPayload);
+            //rabbitMQProducer.sendUserRegisteredEvent(eventPayload);
         } catch (Exception e) {
             // Log error but don't fail registration if RMQ is down
             System.err.println("RabbitMQ Offline: " + e.getMessage());

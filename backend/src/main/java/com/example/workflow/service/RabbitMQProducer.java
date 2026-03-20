@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 
-@Service
+//@Service
 @RequiredArgsConstructor
 @Slf4j
 public class RabbitMQProducer {
