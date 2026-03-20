@@ -2,7 +2,17 @@ FROM openjdk:21-jdk
 
 WORKDIR /app
 
-COPY target/workflow-0.0.1-SNAPSHOT.jar app.jar
+# install maven
+RUN apt-get update && apt-get install -y maven
+
+# copy project
+COPY . .
+
+# build jar (skip tests)
+RUN mvn clean package -DskipTests
+
+# copy jar
+RUN cp target/*.jar app.jar
 
 EXPOSE 8080
 
