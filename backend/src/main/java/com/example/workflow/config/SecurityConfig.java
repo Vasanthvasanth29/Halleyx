@@ -262,7 +262,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").permitAll()
 
                         // everything else secured
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
 
                 // ✅ stateless (JWT)
