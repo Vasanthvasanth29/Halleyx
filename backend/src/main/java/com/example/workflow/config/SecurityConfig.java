@@ -115,9 +115,13 @@ package com.example.workflow.config;
 import com.example.workflow.repository.UserRepository;
 import com.example.workflow.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -139,11 +143,10 @@ import java.util.Collections;
 import java.util.List;
 
 @Configuration
-@EnableWebSecurity
-@RequiredArgsConstructor
+@ConditionalOnProperty(name = "app.security.enabled", havingValue = "true", matchIfMissing = false)
 public class SecurityConfig {
-
-    private final UserRepository userRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     @Bean
     public UserDetailsService userDetailsService() {
@@ -221,5 +224,10 @@ public class SecurityConfig {
                         UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public JavaMailSender emailSender() {
+        return new JavaMailSenderImpl();
     }
 }
